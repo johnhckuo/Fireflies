@@ -5,13 +5,16 @@ var lightHeight = 250;
 var mountainWidth = 500;
 var worldWidth = 64;
 var terrain = [];
-var firefliesNumber = 50;
+var firefliesNumber = 40;
 var fireflies;
 var firefliesCoordianteX = [];
 var firefliesCoordianteY = [];
 var firefliesCoordianteZ = [];
 var starParticle;
 var boxSize = 5000;
+var firefliesUpperBoundary = 55;
+var lightDistance = 30;
+var clock = new THREE.Clock();
 $(document).ready(function(){
 
     scene = new THREE.Scene();
@@ -140,7 +143,9 @@ $(document).ready(function(){
         Smooth : smoothinFactor,
         FirefliesNumber : firefliesNumber,
         BasicMaterial : false,
-        Wireframe : false
+        Wireframe : false,
+        FirstPerson : false,
+        LightDistance : lightDistance
     };
 
 
@@ -150,7 +155,7 @@ $(document).ready(function(){
     gui.add(params, 'Smooth').min(0).max(1000).step(1).onFinishChange(function(){
         //smoothinFactor = params.Smooth;
         //generateHeight(worldWidth, smoothinFactor, boundaryHeight, treeNumber);
-        alert("This function will be supported soon");
+        alert("This function isn't available yet");
         params.Smooth = 0;
     });
 
@@ -217,13 +222,26 @@ $(document).ready(function(){
         }
     });
 
+    gui.add(params, 'FirstPerson').onFinishChange(function(){
+        if(params.FirstPerson == true){
+            setControlsFirstPerson();
+        }else{
+            setControlsOrbit();
+        }
+
+
+    });
 
 
 
-
-    gui.add(params, 'FirefliesNumber').min(0).max(200).step(1).onFinishChange(function(){
+    gui.add(params, 'FirefliesNumber').min(0).max(firefliesUpperBoundary).step(1).onFinishChange(function(){
         firefliesNumber = params.FirefliesNumber;
-        buildFireflies(firefliesNumber);
+        buildFireflies(firefliesNumber, false);
+    });
+
+    gui.add(params, 'LightDistance').min(0).max(50).step(10).onFinishChange(function(){
+        lightDistance = params.LightDistance;
+        modifyDistance(lightDistance);
     });
 
 
@@ -234,11 +252,11 @@ $(document).ready(function(){
 
     createStar('normal');
 
-    ////////
-    //star//
-    ////////
+    /////////////
+    //fireflies//
+    /////////////
 
-    buildFireflies(firefliesNumber);
+    buildFireflies(firefliesNumber, true);
 
     ////////////////////////
     //subtle ambient light//
@@ -247,6 +265,14 @@ $(document).ready(function(){
     var ambientLight = new THREE.AmbientLight(0x191970);
     scene.add(ambientLight);
 
+    ////////
+    //test//
+    ////////
+
+    //material = new THREE.ParticleMaterial( { color: 0xffffff} );
+        // make the particle
+    //console.log(fireflies.materials[ 0 ].color.setHex( 0xff0000 ))
+    
 
     ///////////
     //animate//
@@ -256,13 +282,14 @@ $(document).ready(function(){
         
         requestAnimationFrame( render );
         renderer.render(scene, camera);
-        controls.update(); //for cameras
-     
+        controls.update(clock.getDelta()); //for cameras
+
+        if (camera.position.y != 10 && controls instanceof THREE.FirstPersonControls)
+            camera.position.y = 10;
+
         stats.update();
         //lightUpdate();
-        lightUpdate();
-
-
+        lightUpdate(firefliesNumber);
 
 
     };
@@ -272,7 +299,7 @@ $(document).ready(function(){
 });
 
 
-function lightUpdate(){
+function lightUpdate(number){
     // update lights
 
     var time = Date.now() * 0.0005;
@@ -282,9 +309,7 @@ function lightUpdate(){
 
     fireflies.geometry.verticesNeedUpdate = true;
 
-
-
-    for ( var i = 0, il = lights.length; i < il; i ++ ) {
+    for ( var i = 0, il = number; i < il; i ++ ) {
 
         var light = lights[ i ];
 
@@ -313,46 +338,86 @@ function lightUpdate(){
     }
 }
 
-function buildFireflies(number){
+function buildFireflies(number, init){
 
-    if (fireflies != null){
-        scene.remove(fireflies); 
-        fireflies = ''; 
-    }
+/*
+
 
     if (lights != null){
-        scene.remove(lights);  
+        for (var i  = 0 ; i< lights.length ; i++){
+            lights[i].intensity = 0;
+        }
         lights = [];
     }
 
-    var geometry = new THREE.Geometry();
+    if (firefliesCoordianteY != null){
+
+        firefliesCoordianteX = [];
+        firefliesCoordianteY = [];
+        firefliesCoordianteZ = [];
+    }
+*/
+    var firefliesGeometry = new THREE.Geometry();
     var material = new THREE.PointCloudMaterial( { size: 0.1, color:0xffff00 } );
 
-    for(var i = 0; i < number; i++) {
+    if (init == true){
 
-        var randomPosition = Math.ceil(Math.random()*(worldWidth-1)*(worldWidth-1));
+        for(var i = 0; i < firefliesUpperBoundary; i++) {
 
-        var vertex = new THREE.Vector3();
+            var randomPosition = Math.ceil(Math.random()*(worldWidth-1)*(worldWidth-1));
 
-        vertex.x = mountain.geometry.vertices[randomPosition].x;
-        vertex.y = mountain.geometry.vertices[randomPosition].y;
-        vertex.z = mountain.geometry.vertices[randomPosition].z;
+            var vertex = new THREE.Vector3();
+
+            vertex.x = mountain.geometry.vertices[randomPosition].x;
+            vertex.y = mountain.geometry.vertices[randomPosition].y;
+            vertex.z = mountain.geometry.vertices[randomPosition].z;
 
 
-        geometry.vertices.push( vertex );
+            //firefliesGeometry.vertices.push( vertex );
 
-        firefliesCoordianteX.push(vertex.x);
-        firefliesCoordianteY.push(vertex.y+1);
-        firefliesCoordianteZ.push(vertex.z);
+            firefliesCoordianteX.push(vertex.x);
+            firefliesCoordianteY.push(vertex.y+1);
+            firefliesCoordianteZ.push(vertex.z);
 
-        //sunLight.castShadow = true;
-        var light = new THREE.PointLight( 0xffffff, 1, 30 );
-        light.position.set(vertex.x, vertex.y, vertex.z);
-        lights.push(light);
-        scene.add(light);
+            //sunLight.castShadow = true;
+            var light = new THREE.PointLight( 0xffffff, 0, lightDistance );
+            light.position.set(vertex.x, vertex.y, vertex.z);
+            lights.push(light);
+            scene.add(light);
+        }
+        for ( var i = 0 ; i < firefliesNumber ; i ++){
+            lights[i].intensity = 1;
+
+            var randomPosition = Math.ceil(Math.random()*(worldWidth-1)*(worldWidth-1));
+
+            var vertex = new THREE.Vector3();
+            vertex.x = mountain.geometry.vertices[randomPosition].x;
+            vertex.y = mountain.geometry.vertices[randomPosition].y;
+            vertex.z = mountain.geometry.vertices[randomPosition].z;
+            firefliesGeometry.vertices.push( vertex );
+
+        }
+
+
+
+    }else{
+        for (var i = 0 ; i < lights.length ; i++){
+            lights[i].intensity = 0;
+
+        }
+
+        scene.remove(fireflies);
+        firefliesGeometry = new THREE.Geometry();;
+
+        for (var i = 0 ; i < number ; i++){
+            lights[i].intensity = 1;
+            firefliesGeometry.vertices.push(lights[i].position);
+        }
+
+
     }
+    fireflies = new THREE.PointCloud( firefliesGeometry, material );    
 
-    fireflies = new THREE.PointCloud( geometry, material );       
 
     //create mesh and add to scene
     scene.add(fireflies);
@@ -471,11 +536,10 @@ function createStar(type) {
 
         geometry.vertices.push( vertex );
          //sunLight.castShadow = true;
-    }
+    
 
     //north
-    for (var i = 0; i < starNumber; i++) 
-    {
+
         var vertex = new THREE.Vector3();
         vertex.x = Math.random() * boxSize - boxSize/2;
         vertex.y = Math.random() * boxSize - boxSize/2;
@@ -483,11 +547,9 @@ function createStar(type) {
 
         geometry.vertices.push( vertex );
         //sunLight.castShadow = true;
-    }
+    
 
     //west
-    for (var i = 0; i < starNumber; i++) 
-    {
         var vertex = new THREE.Vector3();
         vertex.x = boxSize/2 -1;
         vertex.y = Math.random() * boxSize - boxSize/2;
@@ -495,11 +557,10 @@ function createStar(type) {
 
         geometry.vertices.push( vertex );
         //sunLight.castShadow = true;
-    }
+    
 
     //south
-    for (var i = 0; i < starNumber; i++) 
-    {
+
         var vertex = new THREE.Vector3();
         vertex.x = Math.random() * boxSize - boxSize/2;
         vertex.y = Math.random() * boxSize - boxSize/2;
@@ -507,11 +568,10 @@ function createStar(type) {
 
         geometry.vertices.push( vertex );
                 //sunLight.castShadow = true;
-    }
+    
 
     //east
-    for (var i = 0; i < starNumber; i++) 
-    {
+
         var vertex = new THREE.Vector3();
         vertex.x = -boxSize/2 +1;
         vertex.y = Math.random() * boxSize - boxSize/2;
@@ -529,7 +589,49 @@ function createStar(type) {
 
 }
 
+function modifyDistance(distance){
+    for (var i = 0 ; i <lights.length ; i++){
+        lights[i].distance = distance;
+    }
+}
 
+
+function setControlsFirstPerson() {
+
+    camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 1, 100000 );
+    camera.position.set( 0, 10, 0 );
+    controls = new THREE.FirstPersonControls(camera);
+    controls.lookSpeed = 0.2;
+    controls.movementSpeed = 20;
+    controls.noFly = true;
+
+
+
+}
+
+
+function setControlsOrbit() {
+
+
+    camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 1, 100000 );
+    camera.position.set(0, 300, -500);
+
+    controls = new THREE.TrackballControls( camera, renderer.domElement );
+    controls.rotateSpeed = 0.1;
+    controls.zoomSpeed = 2.2;
+    controls.panSpeed = 0.2;
+     
+    controls.noZoom = false;
+    controls.noPan = false;
+     
+    controls.staticMoving = false;
+    controls.dynamicDampingFactor = 0.3;
+     
+    controls.minDistance = 0.1;
+    controls.maxDistance = mountainWidth/2;
+     
+    controls.keys = [ 16, 17, 18 ]; // [ rotateKey, zoomKey, panKey ] 
+}
 
 
 function onWindowResize() {
